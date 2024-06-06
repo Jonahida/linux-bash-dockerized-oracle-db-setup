@@ -107,30 +107,6 @@ move_downloaded_file() {
 }
 
 
-# Function to configure Docker daemon DNS settings
-configure_docker_dns() {
-    dns_info=$(nmcli dev show | grep 'IP4.DNS' | awk '{print $2}' | tr '\n' ',' | sed 's/,$//')
-    if [ -z "$dns_info" ]; then
-        show_error "Failed to retrieve DNS information."
-        return 1
-    fi
-
-    echo "Configuring Docker daemon DNS settings..."
-    sudo bash -c "cat > /etc/docker/daemon.json <<EOF
-{
-   \"dns\": [\"$dns_info\", \"8.8.8.8\"]
-}
-EOF"
-    echo "Docker daemon DNS settings configured."
-}
-
-# Function to remove Docker daemon configuration file
-remove_docker_daemon_config() {
-    echo "Removing Docker daemon configuration file..."
-    sudo rm -f /etc/docker/daemon.json
-    echo "Docker daemon configuration file removed."
-}
-
 # Function to remove the docker-images directory and all subdirectories
 remove_docker_git_directory() {
     read -p "Do you want to remove the docker-images directory and all its subdirectories? (y/n) [Default: n]: " remove_choice
@@ -175,14 +151,8 @@ prompt_oracle_db_version || { return 1; }
 # Move the downloaded file if the user agrees
 move_downloaded_file || { return 1; }
 
-# Configure temporary DNS to use with Docker
-configure_docker_dns || { return 1; }
-
 # Execute the build script with the specified Oracle DB version
-docker-images/OracleDatabase/SingleInstance/dockerfiles/buildContainerImage.sh -v "$db_version" -e -t oracle19c || { return 1; }
-
-# Remove temporary Docker DNS configuration 
-remove_docker_daemon_config
+docker-images/OracleDatabase/SingleInstance/dockerfiles/buildContainerImage.sh -v "$db_version" -o --network=host -e -t oracle19c || { return 1; } 
 
 # Remove docker-images directory
 remove_docker_git_directory
